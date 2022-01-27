@@ -34,11 +34,18 @@ def recreate_table_if_needed(cursor):
     index_create_str = "ALTER TABLE students ADD INDEX birthday (birthday)"
     cursor.execute(index_create_str)
 
+
+def get_rooms(name_of_file):
+    with open(name_of_file, "r", encoding="utf8") as read_file:
+        rooms = json.load(read_file)
+
+    return rooms
+
+
 def load_rooms_into_table_from_file(file_rooms, cursor, connection):
     """ Insert values into 'rooms' table """
 
-    with open(file_rooms, "r", encoding="utf8") as read_file:
-        rooms = json.load(read_file)
+    rooms = get_rooms(file_rooms)
 
     for room in rooms:
         query_string = f"INSERT INTO rooms(name) VALUES ('{room['name']}')"
@@ -49,11 +56,17 @@ def load_rooms_into_table_from_file(file_rooms, cursor, connection):
     return rooms
 
 
+def get_students(name_of_file):
+    with open(name_of_file, "r", encoding="utf8") as read_file:
+        students = json.load(read_file)
+
+    return students
+
+
 def load_students_into_table_from_file(file_students, cursor, connection):
     """ Insert values into 'students' table """
 
-    with open(file_students, "r", encoding="utf8") as read_file:
-        students = json.load(read_file)
+    students = get_students(file_students)
 
     for student in students:
         birthday = datetime.strptime(student['birthday'], "%Y-%m-%dT%H:%M:%S.%f")
@@ -65,6 +78,7 @@ def load_students_into_table_from_file(file_students, cursor, connection):
 
     return students
 
+
 def timing(f):
     @wraps(f)
     def wrap(*args, **kw):
@@ -73,7 +87,16 @@ def timing(f):
         te = time()
         print(f'{(te - ts) * 1000.0} millisec')
         return result
+
     return wrap
+
+
+def execute_query(sql_query, cursor):
+    cursor.execute(sql_query)
+    res = cursor.fetchall()
+
+    return res
+
 
 @timing
 def get_rooms_students_count(cursor):
@@ -82,10 +105,9 @@ def get_rooms_students_count(cursor):
     query_string = """SELECT rooms.name as 'The room number', count(rooms.room_id) as 'number of students' 
                    FROM rooms INNER JOIN students ON rooms.room_id = students.room_id 
                    GROUP BY rooms.name, rooms.room_id"""
-    cursor.execute(query_string)
-    res_query_1 = cursor.fetchall()
 
-    return res_query_1
+    return execute_query(query_string, cursor)
+
 
 @timing
 def get_five_smallest_age_rooms(cursor):
@@ -98,10 +120,8 @@ def get_five_smallest_age_rooms(cursor):
                    ORDER BY AVG(YEAR(NOW()) - YEAR(students.birthday))
                    LIMIT 5"""
 
-    cursor.execute(query_string)
-    res_query_2 = cursor.fetchall()
+    return execute_query(query_string, cursor)
 
-    return res_query_2
 
 @timing
 def get_five_biggest_rooms_with_age_difference(cursor):
@@ -115,9 +135,8 @@ def get_five_biggest_rooms_with_age_difference(cursor):
                    (MIN(YEAR(NOW()) - YEAR(students.birthday))) DESC 
                    LIMIT 5"""
 
-    cursor.execute(query_string)
-    res_query_3 = cursor.fetchall()
-    return res_query_3
+    return execute_query(query_string, cursor)
+
 
 @timing
 def get_rooms_with_different_sex_of_students(cursor):
@@ -128,14 +147,14 @@ def get_rooms_with_different_sex_of_students(cursor):
                    GROUP BY room_id 
                    HAVING COUNT(DISTINCT sex) > 1 """
 
-    cursor.execute(query_string)
-    res_query_4 = cursor.fetchall()
+    res_query_4 = execute_query(query_string, cursor)
 
     res_4 = []
 
     for room in res_query_4:
         res_4.append("Room " + str(room['room_id'] - 1))
     return res_4
+
 
 def do_task_work(file_students, file_rooms, format):
     try:
